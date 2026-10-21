@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Alfred — Painel da Vida</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #171a21; --panel-2: #1e222b; --line: #2a2f3a;
+    --text: #e7e9ee; --muted: #9aa1ae; --accent: #6ea8fe;
+    --alta: #ff6b6b; --media: #f7b955; --baixa: #5cc8a1;
+  }
+  @media (prefers-color-scheme: light) {
+    :root { --bg: #f5f6f8; --panel: #ffffff; --panel-2: #f0f2f5; --line: #e1e4ea;
+            --text: #1b1f27; --muted: #5d6573; --accent: #2f6fdb; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  a { color: var(--accent); }
+
+  /* Login */
+  #login { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+  .login-card { width: 100%; max-width: 360px; background: var(--panel); border: 1px solid var(--line);
+                border-radius: 14px; padding: 32px 28px; }
+  .login-card h1 { margin: 0 0 4px; font-size: 24px; letter-spacing: -0.01em; }
+  .login-card p { margin: 0 0 24px; color: var(--muted); }
+  .login-card label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  .login-card input { width: 100%; padding: 11px 12px; border-radius: 8px; border: 1px solid var(--line);
+                      background: var(--panel-2); color: var(--text); font-size: 15px; }
+  .login-card input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .login-card button { width: 100%; margin-top: 16px; padding: 11px; border: 0; border-radius: 8px;
+                       background: var(--accent); color: #fff; font-weight: 600; font-size: 15px; cursor: pointer; }
+  .login-card button:disabled { opacity: .6; cursor: progress; }
+  .error { color: var(--alta); font-size: 13px; min-height: 20px; margin-top: 10px; }
+
+  /* App */
+  #app { display: none; max-width: 1100px; margin: 0 auto; padding: 20px 20px 60px; }
+  header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  header h1 { margin: 0; font-size: 22px; }
+  header .meta { color: var(--muted); font-size: 13px; }
+  header button { background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 8px;
+                  padding: 6px 12px; cursor: pointer; }
+  nav { display: flex; gap: 6px; overflow-x: auto; margin: 18px 0 20px; padding-bottom: 4px;
+        border-bottom: 1px solid var(--line); }
+  nav button { flex: none; background: none; border: 0; color: var(--muted); padding: 10px 12px; cursor: pointer;
+               font-size: 14px; border-bottom: 2px solid transparent; margin-bottom: -5px; }
+  nav button[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
+  .count { display: inline-block; min-width: 18px; padding: 0 6px; margin-left: 4px; border-radius: 9px;
+           background: var(--alta); color: #fff; font-size: 11px; line-height: 18px; text-align: center; }
+  .summary { color: var(--muted); margin: 0 0 18px; }
+
+  .days { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+  .day { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+  .day.today { border-color: var(--accent); }
+  .day h3 { margin: 0 0 10px; font-size: 15px; display: flex; justify-content: space-between; }
+  .day h3 small { color: var(--accent); font-weight: 600; }
+
+  .task { background: var(--panel-2); border-radius: 10px; padding: 12px; margin-bottom: 10px;
+          border-left: 3px solid var(--line); }
+  .task.alta { border-left-color: var(--alta); }
+  .task.media { border-left-color: var(--media); }
+  .task.baixa { border-left-color: var(--baixa); }
+  .task.done { opacity: .5; }
+  .task.done .t-title { text-decoration: line-through; }
+  .t-head { display: flex; gap: 10px; align-items: flex-start; }
+  .t-head input { margin-top: 4px; width: 16px; height: 16px; flex: none; accent-color: var(--accent); }
+  .t-title { font-weight: 600; }
+  .t-detail { color: var(--muted); font-size: 14px; margin: 6px 0 0 26px; }
+  .t-deadline { font-size: 13px; margin: 6px 0 0 26px; }
+  .t-links { margin: 8px 0 0 26px; display: flex; gap: 12px; flex-wrap: wrap; font-size: 13px; }
+  .badge { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; padding: 1px 6px; border-radius: 4px;
+           margin-left: 6px; vertical-align: 1px; }
+  .badge.alta { background: color-mix(in srgb, var(--alta) 20%, transparent); color: var(--alta); }
+  .badge.media { background: color-mix(in srgb, var(--media) 20%, transparent); color: var(--media); }
+  .badge.baixa { background: color-mix(in srgb, var(--baixa) 20%, transparent); color: var(--baixa); }
+
+  h2.section { font-size: 16px; margin: 28px 0 10px; }
+  table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--line);
+          border-radius: 12px; overflow: hidden; font-size: 14px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 500; background: var(--panel-2); }
+  tr:last-child td { border-bottom: 0; }
+  .item-date { color: var(--muted); font-size: 12px; margin-left: 26px; }
+</style>
+</head>
+<body>
+
+<main id="login">
+  <form class="login-card" id="login-form" autocomplete="off">
+    <h1>Alfred</h1>
+    <p>Seu painel pessoal. Entre com sua senha.</p>
+    <label for="pw">Senha</label>
+    <input id="pw" type="password" autofocus required>
+    <button id="enter" type="submit">Entrar</button>
+    <div class="error" id="err" role="alert"></div>
+  </form>
+</main>
+
+<div id="app">
+  <header>
+    <div>
+      <h1>Painel da Vida</h1>
+      <div class="meta" id="meta"></div>
+    </div>
+    <button id="logout" type="button">Sair</button>
+  </header>
+  <nav id="tabs" role="tablist"></nav>
+  <section id="panel" role="tabpanel"></section>
+</div>
+
+<script>
+const PAYLOAD = /*PAYLOAD*/null;
+
+const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtDate = iso => new Date(iso + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' });
+const todayISO = () => new Date().toLocaleDateString('sv-SE');
+
+async function decrypt(password) {
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveKey']);
+  const aes = await crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt: b64(PAYLOAD.salt), iterations: PAYLOAD.iterations, hash: 'SHA-256' },
+    key, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+  const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64(PAYLOAD.iv) }, aes, b64(PAYLOAD.data));
+  return JSON.parse(new TextDecoder().decode(plain));
+}
+
+// Checkbox state lives in localStorage, keyed by task title
+const doneKey = 'alfred-done';
+const getDone = () => new Set(JSON.parse(localStorage.getItem(doneKey) || '[]'));
+function toggleDone(id, on) {
+  const s = getDone(); on ? s.add(id) : s.delete(id);
+  localStorage.setItem(doneKey, JSON.stringify([...s]));
+}
+
+function taskHTML(t, extraDate) {
+  const done = getDone().has(t.title);
+  const links = (t.links || []).map(l => `<a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.label)} ↗</a>`).join('');
+  return `<div class="task ${esc(t.priority)}${done ? ' done' : ''}">
+    <label class="t-head">
+      <input type="checkbox" data-id="${esc(t.title)}" ${done ? 'checked' : ''}>
+      <span class="t-title">${esc(t.title)}<span class="badge ${esc(t.priority)}">${esc(t.priority === 'media' ? 'média' : t.priority)}</span></span>
+    </label>
+    ${extraDate ? `<div class="item-date">${esc(fmtDate(t.date))}</div>` : ''}
+    ${t.detail ? `<div class="t-detail">${esc(t.detail)}</div>` : ''}
+    ${t.deadline ? `<div class="t-deadline">⏰ ${esc(t.deadline)}</div>` : ''}
+    ${links ? `<div class="t-links">${links}</div>` : ''}
+  </div>`;
+}
+
+function renderArea(area) {
+  let html = `<p class="summary">${esc(area.summary)}</p>`;
+  if (area.days) {
+    const today = todayISO();
+    html += '<div class="days">' + area.days.map(d => `
+      <div class="day${d.date === today ? ' today' : ''}">
+        <h3>${esc(fmtDate(d.date))}${d.date === today ? '<small>HOJE</small>' : ''}</h3>
+        ${d.tasks.map(t => taskHTML(t)).join('')}
+      </div>`).join('') + '</div>';
+  }
+  if (area.items) html += area.items.map(t => taskHTML(t, true)).join('');
+  if (area.applications) {
+    html += `<h2 class="section">Candidaturas recentes</h2><table>
+      <thead><tr><th>Empresa</th><th>Vaga</th><th>Status</th></tr></thead><tbody>
+      ${area.applications.map(a => `<tr><td>${esc(a.company)}</td><td>${esc(a.role)}</td><td>${esc(a.status)}</td></tr>`).join('')}
+      </tbody></table>`;
+  }
+  return html;
+}
+
+function pendingHigh(area) {
+  const tasks = area.days ? area.days.flatMap(d => d.tasks) : (area.items || []);
+  const done = getDone();
+  return tasks.filter(t => t.priority === 'alta' && !done.has(t.title)).length;
+}
+
+function showApp(data) {
+  document.getElementById('login').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('meta').textContent =
+    `Dados lidos do Gmail em ${new Date(data.updatedAt + 'T12:00:00').toLocaleDateString('pt-BR')}`;
+
+  const tabs = document.getElementById('tabs');
+  const panel = document.getElementById('panel');
+  let current = location.hash.slice(1) || data.areas[0].id;
+
+  function draw() {
+    tabs.innerHTML = data.areas.map(a => {
+      const n = pendingHigh(a);
+      return `<button role="tab" data-id="${a.id}" aria-selected="${a.id === current}">${a.icon} ${esc(a.title)}${n ? `<span class="count">${n}</span>` : ''}</button>`;
+    }).join('');
+    const area = data.areas.find(a => a.id === current) || data.areas[0];
+    panel.innerHTML = renderArea(area);
+  }
+  tabs.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    current = b.dataset.id; history.replaceState(null, '', '#' + current); draw();
+  });
+  panel.addEventListener('change', e => {
+    if (e.target.type === 'checkbox') { toggleDone(e.target.dataset.id, e.target.checked); draw(); }
+  });
+  draw();
+}
+
+document.getElementById('login-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const btn = document.getElementById('enter'), err = document.getElementById('err');
+  btn.disabled = true; btn.textContent = 'Entrando…'; err.textContent = '';
+  try {
+    const pw = document.getElementById('pw').value;
+    const data = await decrypt(pw);
+    sessionStorage.setItem('alfred-pw', pw);
+    showApp(data);
+  } catch {
+    err.textContent = 'Senha incorreta.';
+  } finally {
+    btn.disabled = false; btn.textContent = 'Entrar';
+  }
+});
+
+document.getElementById('logout').addEventListener('click', () => {
+  sessionStorage.removeItem('alfred-pw'); location.hash = ''; location.reload();
+});
+
+// Keep the session open across reloads within the same tab
+const saved = sessionStorage.getItem('alfred-pw');
+if (saved) decrypt(saved).then(showApp).catch(() => sessionStorage.removeItem('alfred-pw'));
+</script>
+</body>
+</html>
