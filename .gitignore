@@ -1,3 +1,6 @@
 # Dados pessoais em texto puro — nunca publicar
 data.json
 .claude/
+
+# Artefatos do navegador automatizado (contêm dados de e-mail)
+.playwright-mcp/
