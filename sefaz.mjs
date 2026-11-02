@@ -31,8 +31,15 @@ function pendencias(historico) {
   // (inclui as linhas de continuação, que vêm mais recuadas e sem "- ")
   const lines = historico.split('\n');
   const out = [];
-  lines.forEach((l, i) => {
-    if (!/\*\*pend[êe]ncia\*\*/i.test(l)) return;
+  const vistos = new Set();
+  lines.forEach((l0, i0) => {
+    if (!/\*\*pend[êe]ncia\*\*/i.test(l0)) return;
+    // se a palavra caiu numa linha de continuação, volta até o início do item ("- ...")
+    let i = i0;
+    while (i > 0 && !/^\s*-\s/.test(lines[i]) && lines[i].trim()) i--;
+    if (vistos.has(i)) return;
+    vistos.add(i);
+    const l = lines[i];
     const indent = l.search(/\S/);
     let txt = l.trim();
     for (let j = i + 1; j < lines.length; j++) {
