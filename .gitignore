@@ -4,3 +4,8 @@ data.json
 
 # Artefatos do navegador automatizado (contêm dados de e-mail)
 .playwright-mcp/
+
+# extratos e faturas: nunca publicar
+*.csv
+*.pdf
+*.ofx
