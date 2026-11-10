@@ -83,6 +83,23 @@
   th { color: var(--muted); font-weight: 500; background: var(--panel-2); }
   tr:last-child td { border-bottom: 0; }
   .item-date { color: var(--muted); font-size: 12px; margin-left: 26px; }
+
+  /* Finanças */
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 8px; }
+  .kpi { background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--accent);
+         border-radius: 12px; padding: 12px 14px; }
+  .kpi .k-label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+  .kpi .k-value { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .kpi .k-sub { color: var(--muted); font-size: 12px; }
+  .kpi.neg { border-left-color: var(--alta); } .kpi.neg .k-value { color: var(--alta); }
+  .kpi.pos { border-left-color: var(--baixa); } .kpi.pos .k-value { color: var(--baixa); }
+  .fin-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 14px; }
+  .fin-grid h2.section { margin-top: 20px; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td.muted { color: var(--muted); font-size: 13px; }
+  tr.total td { font-weight: 700; background: var(--panel-2); }
+  .bar { height: 6px; border-radius: 3px; background: var(--accent); opacity: .75; margin-top: 4px; }
+  .note { color: var(--muted); font-size: 13px; margin: 8px 2px 0; }
 </style>
 </head>
 <body>
@@ -150,8 +167,74 @@ function taskHTML(t, extraDate) {
   </div>`;
 }
 
+const brl = n => (n ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const mesNome = ym => new Date(ym + '-01T12:00:00').toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
+const sum = (arr, f = x => x.valor) => arr.reduce((s, x) => s + (f(x) || 0), 0);
+
+function budgetHTML(b) {
+  const c = b.cartao;
+  const renda = sum(b.renda), rendaFixa = sum(b.renda.filter(r => !r.variavel));
+  const fixas = sum(b.fixas);
+  const cartoes = (c ? c.compras : 0) + sum(b.outrosCartoes || []);
+  const saidas = fixas + cartoes, sobra = renda - saidas, sobraSem = rendaFixa - saidas;
+  const kpi = (label, v, sub, cls = '') =>
+    `<div class="kpi ${cls}"><div class="k-label">${esc(label)}</div><div class="k-value">${brl(v)}</div><div class="k-sub">${esc(sub)}</div></div>`;
+  const row = (cells) => `<tr>${cells.join('')}</tr>`;
+  const td = (v, cls = '') => `<td class="${cls}">${v}</td>`;
+
+  let h = '<div class="kpis">'
+    + kpi('Entra no mês', renda, b.renda.map(r => r.nome.split(' ')[0]).join(' + '))
+    + kpi('Sai no mês', saidas, `cartões ${brl(cartoes)} + contas ${brl(fixas)}`)
+    + kpi('Sobra', sobra, 'com a Huna', sobra < 0 ? 'neg' : 'pos')
+    + kpi('Sobra sem a Huna', sobraSem, 'só com o salário', sobraSem < 0 ? 'neg' : 'pos')
+    + '</div>';
+  if (b.nota) h += `<p class="note">${esc(b.nota)}</p>`;
+
+  h += '<div class="fin-grid"><div>';
+  h += `<h2 class="section">Entradas</h2><table><tbody>
+    ${b.renda.map(r => row([td(esc(r.nome)), td(esc(r.obs || ''), 'muted'), td(brl(r.valor), 'num')])).join('')}
+    <tr class="total"><td>Total</td><td></td><td class="num">${brl(renda)}</td></tr></tbody></table>`;
+  h += `<h2 class="section">Contas fixas</h2><table><tbody>
+    ${b.fixas.map(f => row([td(esc(f.nome)), td(esc(f.obs || (f.vence ? 'vence dia ' + f.vence : 'vencimento ?')), 'muted'), td(brl(f.valor), 'num')])).join('')}
+    <tr class="total"><td>Total</td><td></td><td class="num">${brl(fixas)}</td></tr></tbody></table>`;
+  h += `<h2 class="section">Cartões — faturas deste mês</h2><table>
+    <thead><tr><th>Cartão</th><th>Vence</th><th class="num">Valor</th></tr></thead><tbody>
+    ${c ? row([td('Nubank'), td(esc(fmtDate(c.vencimento)) + (c.pagamentos[0] ? `<div class="muted">adiantou ${brl(c.pagamentos[0].valor)} em ${esc(fmtDate(c.pagamentos[0].date))}</div>` : '')), td(brl(c.compras), 'num')]) : ''}
+    ${(b.outrosCartoes || []).map(o => row([td(esc(o.nome)), td(esc(fmtDate(o.vencimento))), td(brl(o.valor), 'num')])).join('')}
+    <tr class="total"><td>Total</td><td></td><td class="num">${brl(cartoes)}</td></tr></tbody></table>`;
+  if (c) h += `<p class="note">Nubank = soma das ${c.qtdCompras} compras do ciclo ${esc(c.periodo.map(d => d.slice(8, 10) + '/' + d.slice(5, 7)).join(' a '))} (arquivo ${esc(c.arquivo)}). O valor exato a pagar está no app.</p>`;
+  h += '</div><div>';
+
+  if (c) {
+    const max = c.categorias[0]?.valor || 1;
+    h += `<h2 class="section">Onde o cartão foi gasto</h2><table><tbody>
+      ${c.categorias.map(k => row([td(`${esc(k.nome)}<div class="bar" style="width:${(k.valor / max * 100).toFixed(0)}%"></div>`), td(k.qtd + 'x', 'muted num'), td(brl(k.valor), 'num'), td(Math.round(k.valor / c.compras * 100) + '%', 'muted num')])).join('')}
+      </tbody></table>`;
+    h += `<h2 class="section">Parcelas já comprometidas nas próximas faturas</h2><table>
+      <thead><tr><th>Fatura</th><th class="num">Parcelas</th><th class="num">Valor</th></tr></thead><tbody>
+      ${c.comprometido.map(m => row([td(esc(mesNome(m.mes))), td(m.qtd, 'num muted'), td(brl(m.valor), 'num')])).join('')}
+      </tbody></table>
+      <p class="note">Só parcelas antigas — sem contar nenhuma compra nova.</p>`;
+  }
+  h += '</div></div>';
+
+  if (c) {
+    h += `<h2 class="section">Todas as parcelas (${c.parcelas.length}) — ${brl(c.totalParcelas)} nesta fatura</h2><table>
+      <thead><tr><th>Compra</th><th>Parcela</th><th class="num">Valor</th><th class="num">Ainda falta</th><th>Última</th></tr></thead><tbody>
+      ${c.parcelas.map(p => row([td(esc(p.nome)), td(esc(p.parcela), 'muted'), td(brl(p.valor), 'num'), td(p.restam ? brl(p.falta) : '✔ acabou', 'num'), td(esc(mesNome(p.ultima)), 'muted')])).join('')}
+      </tbody></table>`;
+  }
+  if (b.cortes?.length) {
+    const eco = sum(b.cortes, x => x.economia);
+    h += `<h2 class="section">Plano de cortes — até ${brl(eco)}/mês (sobra iria para ${brl(sobra + eco)})</h2>`
+      + b.cortes.map(t => taskHTML(t)).join('');
+  }
+  return h;
+}
+
 function renderArea(area) {
   let html = `<p class="summary">${esc(area.summary)}</p>`;
+  if (area.budget) html += budgetHTML(area.budget);
   if (area.days) {
     const today = todayISO();
     html += '<div class="days">' + area.days.map(d => `
@@ -160,7 +243,8 @@ function renderArea(area) {
         ${d.tasks.map(t => taskHTML(t)).join('')}
       </div>`).join('') + '</div>';
   }
-  if (area.items) html += area.items.map(t => taskHTML(t, true)).join('');
+  if (area.items) html += (area.budget && area.items.length ? '<h2 class="section">Avisos e pendências</h2>' : '')
+    + area.items.map(t => taskHTML(t, true)).join('');
   if (area.applications) {
     html += `<h2 class="section">Candidaturas recentes</h2><table>
       <thead><tr><th>Empresa</th><th>Vaga</th><th>Status</th></tr></thead><tbody>

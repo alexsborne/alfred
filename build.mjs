@@ -15,7 +15,9 @@ const aes = await crypto.subtle.deriveKey(
   key, { name: 'AES-GCM', length: 256 }, false, ['encrypt']);
 // A aba SEFAZ-DF é lida do projeto de estudos a cada build (ver sefaz.mjs).
 const { mergeSefaz } = await import('./sefaz.mjs');
-const painel = mergeSefaz(JSON.parse(readFileSync('data.json', 'utf8')));
+// A aba Finanças recebe o resumo da fatura mais recente em ./financas/ (ver financas.mjs).
+const { mergeFinancas } = await import('./financas.mjs');
+const painel = mergeFinancas(mergeSefaz(JSON.parse(readFileSync('data.json', 'utf8'))));
 writeFileSync('data.json', JSON.stringify(painel, null, 2) + '\n');
 const plain = new TextEncoder().encode(JSON.stringify(painel));
 const data = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, aes, plain));
