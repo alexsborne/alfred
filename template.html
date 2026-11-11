@@ -232,8 +232,44 @@ function budgetHTML(b) {
   return h;
 }
 
+function trilhaHTML(t) {
+  const done = new Set(JSON.parse(localStorage.getItem('trilha-ia-done') || '[]'));
+  const semanas = t.calendario.filter(c => !c.pausa);
+  const hoje = todayISO();
+  const atual = semanas.find(s => hoje <= s.fim) || semanas.at(-1);
+  const pend = semanas.find(s => s.sessoes.some(x => !done.has(x.id))) || semanas.at(-1);
+  const pausaAgora = t.calendario.find(c => c.pausa && c.inicio <= hoje && hoje <= c.fim);
+  const feitas = semanas.reduce((n, s) => n + s.sessoes.filter(x => done.has(x.id)).length, 0);
+  const atrasadas = semanas.filter(s => s.fim < hoje).reduce((n, s) => n + s.sessoes.filter(x => !done.has(x.id)).length, 0);
+  const link = id => `${t.site}#${id}`;
+  const pct = Math.round(feitas / t.totalSessoes * 100);
+  const kpi = (label, v, sub, cls = '') => `<div class="kpi ${cls}"><div class="k-label">${esc(label)}</div><div class="k-value" style="font-size:20px">${v}</div><div class="k-sub">${sub}</div></div>`;
+  let h = '<div class="kpis">'
+    + kpi('Progresso', pct + '%', `${feitas} de ${t.totalSessoes} sessões`)
+    + kpi('Semana do calendário', esc(atual.id), esc(atual.titulo))
+    + kpi('Próxima a estudar', esc(pend.id), esc(pend.titulo))
+    + kpi('Atrasadas', atrasadas, atrasadas ? 'sessões de semanas que já passaram' : 'em dia ✔', atrasadas ? 'neg' : 'pos')
+    + '</div>';
+  if (pausaAgora) h += `<p class="note">⏸ Semana de pausa: ${esc(pausaAgora.motivo)}.</p>`;
+  h += `<p class="note">Os números aparecem certos no navegador em que você marca as sessões no <a href="${esc(t.site)}" target="_blank" rel="noopener">site da trilha ↗</a>.</p>`;
+  const semanaCard = (s, rotulo) => `<div class="day${s.id === atual.id ? ' today' : ''}"><h3>${esc(rotulo)} · ${esc(s.id)}<small>${esc(fmtDate(s.inicio))}</small></h3>
+      <div class="t-detail" style="margin:0 0 8px">${esc(s.titulo)}</div>
+      ${s.sessoes.map(x => `<div class="task ${done.has(x.id) ? 'done baixa' : 'media'}"><span class="t-title">${done.has(x.id) ? '✔' : '○'} ${esc(x.titulo)}</span></div>`).join('')}
+      <div class="t-links" style="margin-left:0"><a href="${esc(link(s.id))}" target="_blank" rel="noopener">Abrir no site ↗</a></div></div>`;
+  h += '<div class="days" style="margin-top:14px">' + semanaCard(pend, 'Próxima a estudar')
+    + (atual.id !== pend.id ? semanaCard(atual, 'Semana do calendário') : '') + '</div>';
+  h += `<h2 class="section">Fases</h2><table><thead><tr><th>Fase</th><th>Semanas</th><th>Projetos</th><th class="num">Feito</th></tr></thead><tbody>`
+    + t.fases.map(f => {
+      const ss = f.semanas.map(id => semanas.find(s => s.id === id));
+      const tot = ss.reduce((n, s) => n + s.sessoes.length, 0), ok = ss.reduce((n, s) => n + s.sessoes.filter(x => done.has(x.id)).length, 0);
+      return `<tr><td><b>${esc(f.id)}</b> ${esc(f.nome)}</td><td class="muted">${esc(fmtDate(ss[0].inicio))} → ${esc(f.semanas.at(-1))}</td><td class="muted">${f.projetos.map(esc).join('<br>')}</td><td class="num">${Math.round(ok / tot * 100)}%</td></tr>`;
+    }).join('') + '</tbody></table>';
+  return h;
+}
+
 function renderArea(area) {
   let html = `<p class="summary">${esc(area.summary)}</p>`;
+  if (area.trilha) html += trilhaHTML(area.trilha);
   if (area.budget) html += budgetHTML(area.budget);
   if (area.days) {
     const today = todayISO();
