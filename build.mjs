@@ -19,7 +19,9 @@ const { mergeSefaz } = await import('./sefaz.mjs');
 const { mergeFinancas } = await import('./financas.mjs');
 // A aba Engenharia de IA vem do resumo da trilha (ver trilha.mjs).
 const { mergeTrilha } = await import('./trilha.mjs');
-const painel = mergeTrilha(mergeFinancas(mergeSefaz(JSON.parse(readFileSync('data.json', 'utf8')))));
+// Por último: todos os guias (SEFAZ-DF, IA, CGU, TCE-GO, Câmara, Raiza) numa aba só (ver guias.mjs).
+const { mergeGuias } = await import('./guias.mjs');
+const painel = mergeGuias(mergeTrilha(mergeFinancas(mergeSefaz(JSON.parse(readFileSync('data.json', 'utf8'))))));
 writeFileSync('data.json', JSON.stringify(painel, null, 2) + '\n');
 const plain = new TextEncoder().encode(JSON.stringify(painel));
 const data = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, aes, plain));

@@ -100,6 +100,14 @@
   tr.total td { font-weight: 700; background: var(--panel-2); }
   .bar { height: 6px; border-radius: 3px; background: var(--accent); opacity: .75; margin-top: 4px; }
   .note { color: var(--muted); font-size: 13px; margin: 8px 2px 0; }
+
+  /* Guias */
+  .guias { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; }
+  .guia { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+  .guia h3 { margin: 0 0 8px; font-size: 16px; }
+  .g-tag { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 10px; background: var(--panel-2);
+           color: var(--muted); margin: 0 6px 4px 0; }
+  .g-tag.urg { background: color-mix(in srgb, var(--alta) 20%, transparent); color: var(--alta); font-weight: 600; }
 </style>
 </head>
 <body>
@@ -267,9 +275,35 @@ function trilhaHTML(t) {
   return h;
 }
 
+function guiasHTML(area) {
+  const hoje = todayISO();
+  const dias = iso => Math.round((new Date(iso + 'T12:00:00') - new Date(hoje + 'T12:00:00')) / 864e5);
+  const ordem = [...area.guias].sort((a, b) => (a.prova && dias(a.prova) >= 0 ? a.prova : '9') .localeCompare(b.prova && dias(b.prova) >= 0 ? b.prova : '9'));
+  let h = '<div class="guias">' + ordem.map(g => {
+    const d = g.prova ? dias(g.prova) : null;
+    const tag = d === null ? '<span class="g-tag">sem data de prova</span>'
+      : d < 0 ? '<span class="g-tag">prova já passou</span>'
+      : `<span class="g-tag ${d <= 30 ? 'urg' : ''}">${d === 0 ? 'prova HOJE' : `faltam ${d} dias`} · ${esc(fmtDate(g.prova))}</span>`;
+    return `<div class="guia">
+      <h3>${esc(g.icone)} ${esc(g.titulo)}</h3>
+      <div>${tag}${g.banca ? `<span class="g-tag">${esc(g.banca)}</span>` : ''}</div>
+      <p class="t-detail" style="margin:8px 0 0">${esc(g.plano)}</p>
+      ${g.aviso ? `<p class="t-deadline" style="margin:6px 0 0">⚠️ ${esc(g.aviso)}</p>` : ''}
+      ${g.tutor ? `<p class="t-detail" style="margin:6px 0 0">🧑‍🏫 Tutor: digite <b>${esc(g.tutor)}</b> no Claude Code</p>` : ''}
+      <div class="t-links" style="margin:10px 0 0">${g.links.map(([l, u]) => `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(l)} ↗</a>`).join('')}</div>
+      ${g.secao ? `<div class="t-links" style="margin:8px 0 0"><a href="#sec-${esc(g.secao)}">ver detalhes abaixo ↓</a></div>` : ''}
+    </div>`;
+  }).join('') + '</div>';
+  if (area.trilha) h += `<h2 class="section" id="sec-ia">🤖 Engenharia de IA — progresso</h2>` + trilhaHTML(area.trilha);
+  if (area.sefaz) h += `<h2 class="section" id="sec-sefaz">🧾 SEFAZ-DF — tarefas e pendências</h2><p class="summary">${esc(area.sefaz.summary)}</p>`
+    + area.sefaz.items.map(t => taskHTML(t, true)).join('');
+  return h;
+}
+
 function renderArea(area) {
   let html = `<p class="summary">${esc(area.summary)}</p>`;
-  if (area.trilha) html += trilhaHTML(area.trilha);
+  if (area.guias) html += guiasHTML(area);
+  else if (area.trilha) html += trilhaHTML(area.trilha);
   if (area.budget) html += budgetHTML(area.budget);
   if (area.days) {
     const today = todayISO();
