@@ -124,6 +124,19 @@
   .g-band { fill: var(--baixa); opacity: .13; } .g-line { fill: none; stroke: var(--accent); stroke-width: 2; }
   .g-pt.ok { fill: var(--baixa); } .g-pt.alto, .g-pt.baixo { fill: var(--alta); }
   .g-val { font-size: 10px; fill: var(--text); text-anchor: middle; } .g-dt { font-size: 9px; fill: var(--muted); text-anchor: middle; }
+  .s-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; }
+  .s-tab.ql td, .s-tab.ql th { white-space: normal; }
+  .s-card, .s-dest, .kpi { min-width: 0; overflow-wrap: anywhere; }
+  @media (max-width: 640px) {
+    .kpis { grid-template-columns: 1fr 1fr; gap: 8px; }
+    .kpi { padding: 10px; } .kpi .k-value { font-size: 20px; }
+    .s-grid { grid-template-columns: 1fr; }
+    .s-tab.at td, .s-tab.at th { white-space: normal; font-size: 13px; padding: 6px; }
+    .s-tab.at td:nth-child(3), .s-tab.at th:nth-child(3) { display: none; }
+    .cmp td, .cmp th { font-size: 12px; padding: 5px 6px; }
+    .cmp td:first-child, .cmp th:first-child { position: sticky; left: 0; background: var(--panel); z-index: 1; }
+    .s-nav a { font-size: 12px; padding: 3px 8px; }
+  }
   .s-dest { background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 12px; padding: 4px 14px; margin: 10px 0; }
   .s-dest p { margin: 8px 0; } .s-rodape { font-size: 12px; margin-top: 18px; }
 
@@ -372,9 +385,9 @@ function saudeConteudo(d) {
     <div class="kpi neg"><div class="k-label">Fora da faixa agora</div><div class="k-value">${foraAgora.length}</div></div>
     <div class="kpi"><div class="k-label">Melhoraram / pioraram</div><div class="k-value">${n('melhorou')} / ${n('piorou')}</div><div class="k-sub">1ª × última medida</div></div>
   </div>`;
-  h += `<h2 class="section">⚠️ Pontos de atenção (última medida fora da faixa)</h2><table class="s-tab"><thead><tr><th>Exame</th><th>Última</th><th>Referência</th><th>Situação</th><th>Tendência</th></tr></thead><tbody>`
+  h += `<h2 class="section">⚠️ Pontos de atenção (última medida fora da faixa)</h2><div class="s-wrap"><table class="s-tab at"><thead><tr><th>Exame</th><th>Última</th><th>Referência</th><th>Situação</th><th>Tendência</th></tr></thead><tbody>`
     + foraAgora.map(it => `<tr><td>${esc(it.nome)}</td><td>${valTxt(it, it.atual)} ${esc(it.un)} <span class="muted">(${dlonga(it.atual.data)})</span></td><td>${refTxt(it)}</td><td><span class="sb ${it.atual.s}">${ROT[it.atual.s]}</span></td><td><span class="tb ${TEND[it.tendencia][1]}">${TEND[it.tendencia][0]}</span></td></tr>`).join('')
-    + `</tbody></table>`;
+    + `</tbody></table></div>`;
   if (d.destaques) h += `<div class="s-dest">${d.destaques.map(x => `<p>${esc(x)}</p>`).join('')}</div>`;
   h += `<nav class="s-nav">${d.grupos.map(g => `<a href="#" data-goto="sg-${g.id}">${g.icone} ${esc(g.titulo)}</a>`).join('')}</nav>`;
   for (const g of d.grupos) {
@@ -388,8 +401,8 @@ function saudeConteudo(d) {
     h += `<div class="s-grid">` + g.itens.map(it => `<div class="s-card"><div class="s-head"><b>${esc(it.nome)}</b><span class="sb ${it.atual.s}">${valTxt(it, it.atual)} ${esc(it.un)}</span></div>
       <div class="muted s-ref">Referência: ${refTxt(it)} · <span class="tb ${TEND[it.tendencia][1]}">${TEND[it.tendencia][0]}</span></div>
       ${grafico(it)}${it.nota ? `<div class="s-nota">${esc(it.nota)}</div>` : ''}</div>`).join('') + `</div>`;
-    if (g.qualitativos) h += `<table class="s-tab"><thead><tr><th>Exame</th><th>Data / valor</th><th>Resultado</th></tr></thead><tbody>`
-      + g.qualitativos.map(([a, b, c]) => `<tr><td>${esc(a)}</td><td class="muted">${esc(b)}</td><td>${esc(c)}</td></tr>`).join('') + `</tbody></table>`;
+    if (g.qualitativos) h += `<div class="s-wrap"><table class="s-tab ql"><thead><tr><th>Exame</th><th>Data / valor</th><th>Resultado</th></tr></thead><tbody>`
+      + g.qualitativos.map(([a, b, c]) => `<tr><td>${esc(a)}</td><td class="muted">${esc(b)}</td><td>${esc(c)}</td></tr>`).join('') + `</tbody></table></div>`;
   }
   h += `<p class="muted s-rodape">Faixa verde no gráfico = valor de referência do laboratório. * = valor calculado aqui, não veio no laudo. Laboratórios diferentes usam faixas um pouco diferentes; aqui vale a do laboratório mais recente. ${esc(d._fonte || '')}<br><b>Isto organiza os números, não é diagnóstico.</b> Leve as dúvidas ao seu médico.</p>`;
   return h;
