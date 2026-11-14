@@ -141,6 +141,8 @@
   .s-dest p { margin: 8px 0; } .s-rodape { font-size: 12px; margin-top: 18px; }
 
   /* Guias */
+  .g-site { background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 12px; padding: 10px 14px; margin: 0 0 14px; font-weight: 600; }
+  .g-site .muted { font-weight: 400; font-size: 13px; color: var(--muted); }
   .guias { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; }
   .guia { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
   .guia h3 { margin: 0 0 8px; font-size: 16px; }
@@ -318,7 +320,8 @@ function guiasHTML(area) {
   const hoje = todayISO();
   const dias = iso => Math.round((new Date(iso + 'T12:00:00') - new Date(hoje + 'T12:00:00')) / 864e5);
   const ordem = [...area.guias].sort((a, b) => (a.prova && dias(a.prova) >= 0 ? a.prova : '9') .localeCompare(b.prova && dias(b.prova) >= 0 ? b.prova : '9'));
-  let h = '<div class="guias">' + ordem.map(g => {
+  let h = (area.links || []).map(l => `<p class="g-site"><a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.label)} ↗</a>${l.desc ? ` <span class="muted">${esc(l.desc)}</span>` : ''}</p>`).join('');
+  h += '<div class="guias">' + ordem.map(g => {
     const d = g.prova ? dias(g.prova) : null;
     const tag = d === null ? '<span class="g-tag">sem data de prova</span>'
       : d < 0 ? '<span class="g-tag">prova já passou</span>'

@@ -64,6 +64,7 @@ export function mergeGuias(painel) {
   const area = {
     id: 'guias', title: 'Guias de estudo', icon: '📖',
     summary: 'Todos os seus guias num lugar só: concursos (CGU, TCE-GO, Câmara, SEFAZ-DF), a trilha de Engenharia de IA e o guia da Raiza. Os dias até a prova são contados automaticamente.',
+    links: [{ label: '🎯 Site de estudos para concursos', url: SITE, desc: 'Todas as trilhas e guias (SEFAZ-DF, CGU, TCE-GO, Câmara). Mesma senha do site.' }],
     guias: GUIAS,
     trilha: ia?.trilha || antiga?.trilha || null,
     sefaz: sefaz ? { summary: sefaz.summary, items: sefaz.items } : (antiga?.sefaz || null),
