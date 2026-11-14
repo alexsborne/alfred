@@ -22,7 +22,7 @@ const { mergeTrilha } = await import('./trilha.mjs');
 // Por último: todos os guias (SEFAZ-DF, IA, CGU, TCE-GO, Câmara, Raiza) numa aba só (ver guias.mjs).
 const { mergeGuias } = await import('./guias.mjs');
 // Aba Saúde: exames cifrados com uma palavra-chave própria (SAUDE_PASSWORD), ver saude.mjs.
-const { mergeSaude } = await import('./saude.mjs');
+const { mergeSaude, paginaPublica } = await import('./saude.mjs');
 const painel = await mergeSaude(mergeGuias(mergeTrilha(mergeFinancas(mergeSefaz(JSON.parse(readFileSync('data.json', 'utf8')))))));
 writeFileSync('data.json', JSON.stringify(painel, null, 2) + '\n');
 const plain = new TextEncoder().encode(JSON.stringify(painel));
@@ -36,3 +36,5 @@ mkdirSync('docs', { recursive: true });
 writeFileSync('docs/index.html', html);
 writeFileSync('docs/.nojekyll', '');
 console.log('docs/index.html gerado');
+const slugSaude = paginaPublica();
+if (slugSaude) console.log(`docs/${slugSaude}/ (Saúde, pública) gerado`);

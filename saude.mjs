@@ -65,3 +65,32 @@ export async function mergeSaude(painel) {
   });
   return painel;
 }
+
+// Página pública da Saúde (para o médico): HTML estático, sem senha e sem nenhum link para o Alfred.
+// Fica em docs/<slug>/ — o slug aleatório é guardado em saude/slug.txt. Usa as mesmas funções de
+// desenho da aba (template.html), executadas aqui no build.
+import { writeFileSync, mkdirSync } from 'node:fs';
+import { randomBytes } from 'node:crypto';
+export function paginaPublica() {
+  if (!existsSync(ARQ)) return null;
+  const SLUG = new URL('./saude/slug.txt', import.meta.url);
+  if (!existsSync(SLUG)) writeFileSync(SLUG, 'exames-' + randomBytes(6).toString('hex'));
+  const slug = readFileSync(SLUG, 'utf8').trim();
+  const tpl = readFileSync(new URL('./template.html', import.meta.url), 'utf8');
+  const css = tpl.match(/<style>[\s\S]*?<\/style>/)[0];
+  const js = tpl.split('<script>')[1];
+  const trecho = js.slice(js.indexOf('const esc ='), js.indexOf('\n', js.indexOf('const esc =')))
+    + '\n' + js.slice(js.indexOf('// ---------- Saúde'), js.indexOf('function saudeHTML'));
+  const { saudeConteudo } = new Function('atob', 'crypto', trecho + '; return { saudeConteudo };')(() => '', null);
+  const d = analisar(JSON.parse(readFileSync(ARQ, 'utf8')));
+  const html = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow,noarchive">
+<meta name="referrer" content="no-referrer"><title>Evolução dos exames laboratoriais</title>${css}</head>
+<body><main style="max-width:1100px;margin:0 auto;padding:18px 14px 60px">
+<h1 style="margin:0 0 4px">🩺 Evolução dos exames laboratoriais</h1>
+<p class="summary">Paciente masculino, 47 anos. Resultados de nov/2023 a ago/2026, organizados por grupo, com a faixa de referência do laboratório. Atualizado em ${new Date().toLocaleDateString('pt-BR')}.</p>
+${saudeConteudo(d).replace(/href="#" data-goto="/g, 'href="#')}</main></body></html>`;
+  mkdirSync(new URL(`./docs/${slug}/`, import.meta.url), { recursive: true });
+  writeFileSync(new URL(`./docs/${slug}/index.html`, import.meta.url), html);
+  return slug;
+}
