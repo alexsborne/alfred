@@ -101,6 +101,32 @@
   .bar { height: 6px; border-radius: 3px; background: var(--accent); opacity: .75; margin-top: 4px; }
   .note { color: var(--muted); font-size: 13px; margin: 8px 2px 0; }
 
+  /* Saúde */
+  .s-lock { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px; max-width: 420px; }
+  .s-lock input { background: var(--panel-2); border: 1px solid var(--line); color: var(--text); border-radius: 8px; padding: 8px 10px; }
+  .s-lock button { background: var(--accent); color: #fff; border: 0; border-radius: 8px; padding: 8px 14px; cursor: pointer; }
+  .s-nav { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 4px; }
+  .s-nav a { border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; font-size: 13px; text-decoration: none; color: var(--text); }
+  .s-wrap { overflow-x: auto; }
+  .s-tab { margin: 8px 0 14px; } .s-tab td, .s-tab th { white-space: nowrap; } .s-tab .muted { color: var(--muted); font-size: 12px; }
+  .cmp td:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+  .c-ok { color: var(--baixa); } .c-alto, .c-baixo { color: var(--alta); font-weight: 700; }
+  .sb { font-size: 12px; font-weight: 700; border-radius: 6px; padding: 1px 7px; white-space: nowrap; }
+  .sb.ok { background: color-mix(in srgb, var(--baixa) 18%, transparent); color: var(--baixa); }
+  .sb.alto, .sb.baixo { background: color-mix(in srgb, var(--alta) 18%, transparent); color: var(--alta); }
+  .tb { font-size: 12px; white-space: nowrap; } .tb-ok { color: var(--baixa); } .tb-bad { color: var(--alta); font-weight: 700; }
+  .tb-warn { color: var(--media); font-weight: 700; } .tb-mut { color: var(--muted); }
+  .s-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+  .s-card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+  .s-head { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+  .s-ref { font-size: 12px; margin: 2px 0 4px; } .s-nota { color: var(--muted); font-size: 12px; margin-top: 4px; }
+  .graf { width: 100%; height: auto; display: block; }
+  .g-band { fill: var(--baixa); opacity: .13; } .g-line { fill: none; stroke: var(--accent); stroke-width: 2; }
+  .g-pt.ok { fill: var(--baixa); } .g-pt.alto, .g-pt.baixo { fill: var(--alta); }
+  .g-val { font-size: 10px; fill: var(--text); text-anchor: middle; } .g-dt { font-size: 9px; fill: var(--muted); text-anchor: middle; }
+  .s-dest { background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 12px; padding: 4px 14px; margin: 10px 0; }
+  .s-dest p { margin: 8px 0; } .s-rodape { font-size: 12px; margin-top: 18px; }
+
   /* Guias */
   .guias { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; }
   .guia { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
@@ -300,8 +326,85 @@ function guiasHTML(area) {
   return h;
 }
 
+// ---------- Saúde: cofre com palavra-chave própria ----------
+let SAUDE = null;
+async function abrirCofre(cofre, senha) {
+  const k = await crypto.subtle.importKey('raw', new TextEncoder().encode(senha), 'PBKDF2', false, ['deriveKey']);
+  const aes = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt: b64(cofre.salt), iterations: cofre.iterations, hash: 'SHA-256' },
+    k, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+  const p = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64(cofre.iv) }, aes, b64(cofre.data));
+  return JSON.parse(new TextDecoder().decode(p));
+}
+const nfmt = x => Number(x).toLocaleString('pt-BR', { maximumFractionDigits: x >= 1000 ? 0 : 2 });
+const dcurta = iso => { const [y, m] = iso.split('-'); return `${m}/${y.slice(2)}`; };
+const dlonga = iso => iso.split('-').reverse().join('/');
+const ROT = { ok: 'normal', alto: 'acima', baixo: 'abaixo' };
+const TEND = { melhorou: ['↗ melhorou', 'tb-ok'], piorou: ['↘ piorou', 'tb-bad'], normal: ['= normal (1ª e última)', 'tb-ok'],
+  igual: ['= continua fora', 'tb-warn'], unico: ['• 1 medida', 'tb-mut'], semref: ['• sem referência', 'tb-mut'] };
+const refTxt = it => it.min != null && it.max != null ? `${nfmt(it.min)} a ${nfmt(it.max)}` : it.max != null ? `até ${nfmt(it.max)}` : it.min != null ? `acima de ${nfmt(it.min)}` : '—';
+const valTxt = (it, p) => (it.menorQue?.[p.data] ? '< ' : '') + nfmt(p.x) + (it.estimado?.[p.data] ? '*' : '');
+
+function grafico(it) {
+  const W = 320, H = 130, L = 20, R = 20, T = 14, B = 22;
+  const ps = it.pontos, xs = ps.map(p => p.x);
+  let lo = Math.min(...xs, it.min ?? Infinity), hi = Math.max(...xs, it.max ?? -Infinity);
+  if (lo === hi) { lo -= 1; hi += 1; }
+  const pad = (hi - lo) * 0.15; lo -= pad; hi += pad;
+  const t = ps.map(p => new Date(p.data).getTime()), t0 = Math.min(...t), t1 = Math.max(...t);
+  const X = d => ps.length === 1 ? W / 2 : L + (new Date(d).getTime() - t0) / (t1 - t0) * (W - L - R);
+  const Y = v => T + (hi - v) / (hi - lo) * (H - T - B);
+  const yMin = it.min != null ? Y(it.min) : H - B, yMax = it.max != null ? Y(it.max) : T;
+  const band = (it.min != null || it.max != null) ? `<rect x="${L}" y="${yMax}" width="${W - L - R}" height="${Math.max(0, yMin - yMax)}" class="g-band"/>` : '';
+  const linha = ps.length > 1 ? `<polyline class="g-line" points="${ps.map(p => `${X(p.data)},${Y(p.x)}`).join(' ')}"/>` : '';
+  const pts = ps.map(p => `<circle cx="${X(p.data)}" cy="${Y(p.x)}" r="4" class="g-pt ${p.s}"><title>${dlonga(p.data)}: ${valTxt(it, p)} ${esc(it.un)} (${ROT[p.s]})</title></circle>`).join('');
+  const rot = ps.map((p, i) => (i === 0 || i === ps.length - 1 || ps.length <= 4)
+    ? `<text x="${X(p.data)}" y="${Y(p.x) - 7}" class="g-val">${valTxt(it, p)}</text><text x="${X(p.data)}" y="${H - 6}" class="g-dt">${dcurta(p.data)}</text>` : '').join('');
+  return `<svg viewBox="0 0 ${W} ${H}" class="graf" role="img" aria-label="Evolução de ${esc(it.nome)}">${band}${linha}${pts}${rot}</svg>`;
+}
+
+function saudeConteudo(d) {
+  const itens = d.grupos.flatMap(g => g.itens);
+  const foraAgora = itens.filter(it => it.atual.s !== 'ok');
+  const n = k => itens.filter(it => it.tendencia === k).length;
+  let h = `<div class="kpis">
+    <div class="kpi"><div class="k-label">Itens acompanhados</div><div class="k-value">${itens.length}</div><div class="k-sub">${Object.keys(d.datas).length} datas de coleta</div></div>
+    <div class="kpi pos"><div class="k-label">Normais na última medida</div><div class="k-value">${itens.length - foraAgora.length}</div></div>
+    <div class="kpi neg"><div class="k-label">Fora da faixa agora</div><div class="k-value">${foraAgora.length}</div></div>
+    <div class="kpi"><div class="k-label">Melhoraram / pioraram</div><div class="k-value">${n('melhorou')} / ${n('piorou')}</div><div class="k-sub">1ª × última medida</div></div>
+  </div>`;
+  h += `<h2 class="section">⚠️ Pontos de atenção (última medida fora da faixa)</h2><table class="s-tab"><thead><tr><th>Exame</th><th>Última</th><th>Referência</th><th>Situação</th><th>Tendência</th></tr></thead><tbody>`
+    + foraAgora.map(it => `<tr><td>${esc(it.nome)}</td><td>${valTxt(it, it.atual)} ${esc(it.un)} <span class="muted">(${dlonga(it.atual.data)})</span></td><td>${refTxt(it)}</td><td><span class="sb ${it.atual.s}">${ROT[it.atual.s]}</span></td><td><span class="tb ${TEND[it.tendencia][1]}">${TEND[it.tendencia][0]}</span></td></tr>`).join('')
+    + `</tbody></table>`;
+  if (d.destaques) h += `<div class="s-dest">${d.destaques.map(x => `<p>${esc(x)}</p>`).join('')}</div>`;
+  h += `<nav class="s-nav">${d.grupos.map(g => `<a href="#" data-goto="sg-${g.id}">${g.icone} ${esc(g.titulo)}</a>`).join('')}</nav>`;
+  for (const g of d.grupos) {
+    const datas = [...new Set(g.itens.flatMap(it => it.pontos.map(p => p.data)))].sort();
+    h += `<h2 class="section" id="sg-${g.id}">${g.icone} ${esc(g.titulo)}</h2>`;
+    h += `<div class="s-wrap"><table class="s-tab cmp"><thead><tr><th>Exame</th><th>Ref.</th>${datas.map(x => `<th>${dcurta(x)}</th>`).join('')}<th>Tendência</th></tr></thead><tbody>`
+      + g.itens.map(it => `<tr><td><b>${esc(it.nome)}</b><div class="muted">${esc(it.un)}</div></td><td class="muted">${refTxt(it)}</td>`
+        + datas.map(x => { const p = it.pontos.find(q => q.data === x); return p ? `<td class="c-${p.s}">${valTxt(it, p)}</td>` : '<td class="muted">·</td>'; }).join('')
+        + `<td><span class="tb ${TEND[it.tendencia][1]}">${TEND[it.tendencia][0]}</span>${it.variacao != null ? `<div class="muted">${it.variacao > 0 ? '+' : ''}${nfmt(it.variacao)}%</div>` : ''}</td></tr>`).join('')
+      + `</tbody></table></div>`;
+    h += `<div class="s-grid">` + g.itens.map(it => `<div class="s-card"><div class="s-head"><b>${esc(it.nome)}</b><span class="sb ${it.atual.s}">${valTxt(it, it.atual)} ${esc(it.un)}</span></div>
+      <div class="muted s-ref">Referência: ${refTxt(it)} · <span class="tb ${TEND[it.tendencia][1]}">${TEND[it.tendencia][0]}</span></div>
+      ${grafico(it)}${it.nota ? `<div class="s-nota">${esc(it.nota)}</div>` : ''}</div>`).join('') + `</div>`;
+    if (g.qualitativos) h += `<table class="s-tab"><thead><tr><th>Exame</th><th>Data / valor</th><th>Resultado</th></tr></thead><tbody>`
+      + g.qualitativos.map(([a, b, c]) => `<tr><td>${esc(a)}</td><td class="muted">${esc(b)}</td><td>${esc(c)}</td></tr>`).join('') + `</tbody></table>`;
+  }
+  h += `<p class="muted s-rodape">Faixa verde no gráfico = valor de referência do laboratório. * = valor calculado aqui, não veio no laudo. Laboratórios diferentes usam faixas um pouco diferentes; aqui vale a do laboratório mais recente. ${esc(d._fonte || '')}<br><b>Isto organiza os números, não é diagnóstico.</b> Leve as dúvidas ao seu médico.</p>`;
+  return h;
+}
+
+function saudeHTML(area) {
+  if (SAUDE) return saudeConteudo(SAUDE);
+  return `<form id="saude-form" class="s-lock"><p>🔒 Esta aba tem uma palavra-chave própria.</p>
+    <input type="password" id="saude-pw" placeholder="Palavra-chave" autocomplete="off"> <button type="submit">Abrir</button>
+    <span id="saude-err" class="muted"></span></form>`;
+}
+
 function renderArea(area) {
   let html = `<p class="summary">${esc(area.summary)}</p>`;
+  if (area.cofre) return html + saudeHTML(area);
   if (area.guias) html += guiasHTML(area);
   else if (area.trilha) html += trilhaHTML(area.trilha);
   if (area.budget) html += budgetHTML(area.budget);
@@ -352,6 +455,19 @@ function showApp(data) {
     const b = e.target.closest('button'); if (!b) return;
     current = b.dataset.id; history.replaceState(null, '', '#' + current); draw();
   });
+  panel.addEventListener('submit', async e => {
+    if (e.target.id !== 'saude-form') return;
+    e.preventDefault();
+    const area = data.areas.find(a => a.id === 'saude'), pw = document.getElementById('saude-pw').value;
+    try { SAUDE = await abrirCofre(area.cofre, pw); sessionStorage.setItem('alfred-saude', pw); draw(); }
+    catch { document.getElementById('saude-err').textContent = 'Palavra-chave incorreta.'; }
+  });
+  panel.addEventListener('click', e => {
+    const a = e.target.closest('[data-goto]'); if (!a) return;
+    e.preventDefault(); document.getElementById(a.dataset.goto)?.scrollIntoView({ behavior: 'smooth' });
+  });
+  const spw = sessionStorage.getItem('alfred-saude'), sa = data.areas.find(a => a.id === 'saude');
+  if (spw && sa) abrirCofre(sa.cofre, spw).then(x => { SAUDE = x; if (current === 'saude') draw(); }).catch(() => sessionStorage.removeItem('alfred-saude'));
   panel.addEventListener('change', e => {
     if (e.target.type === 'checkbox') { toggleDone(e.target.dataset.id, e.target.checked); draw(); }
   });
@@ -375,7 +491,7 @@ document.getElementById('login-form').addEventListener('submit', async e => {
 });
 
 document.getElementById('logout').addEventListener('click', () => {
-  sessionStorage.removeItem('alfred-pw'); location.hash = ''; location.reload();
+  sessionStorage.removeItem('alfred-pw'); sessionStorage.removeItem('alfred-saude'); location.hash = ''; location.reload();
 });
 
 // Keep the session open across reloads within the same tab
