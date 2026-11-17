@@ -139,6 +139,15 @@
   }
   .s-dest { background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 12px; padding: 4px 14px; margin: 10px 0; }
   .s-dest p { margin: 8px 0; } .s-rodape { font-size: 12px; margin-top: 18px; }
+  .s-ind { background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--media); border-radius: 12px; padding: 12px 14px; }
+  .s-ind h3 { margin: 0 0 4px; font-size: 15px; }
+  .s-ind .s-meta { color: var(--muted); font-size: 12px; margin: 0 0 10px; }
+  .s-ind h4 { margin: 10px 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 600; }
+  .s-ind ul { margin: 0; padding-left: 18px; } .s-ind li { margin: 3px 0; }
+  .s-ind .prio { font-size: 11px; font-weight: 700; border-radius: 6px; padding: 1px 7px; margin-left: 6px;
+                 background: color-mix(in srgb, var(--media) 20%, transparent); color: var(--media); vertical-align: 1px; }
+  .s-ind .prio.p1 { background: color-mix(in srgb, var(--alta) 18%, transparent); color: var(--alta); }
+  .s-nav a.s-nav-ind { border-color: var(--media); color: var(--text); font-weight: 600; }
 
   /* Guias */
   .g-site { background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 12px; padding: 10px 14px; margin: 0 0 14px; font-weight: 600; }
@@ -392,7 +401,11 @@ function saudeConteudo(d) {
     + foraAgora.map(it => `<tr><td>${esc(it.nome)}</td><td>${valTxt(it, it.atual)} ${esc(it.un)} <span class="muted">(${dlonga(it.atual.data)})</span></td><td>${refTxt(it)}</td><td><span class="sb ${it.atual.s}">${ROT[it.atual.s]}</span></td><td><span class="tb ${TEND[it.tendencia][1]}">${TEND[it.tendencia][0]}</span></td></tr>`).join('')
     + `</tbody></table></div>`;
   if (d.destaques) h += `<div class="s-dest">${d.destaques.map(x => `<p>${esc(x)}</p>`).join('')}</div>`;
-  h += `<nav class="s-nav">${d.grupos.map(g => `<a href="#" data-goto="sg-${g.id}">${g.icone} ${esc(g.titulo)}</a>`).join('')}</nav>`;
+  h += `<nav class="s-nav">`
+    + (d.indicacoes ? `<a href="#" data-goto="sg-indicacoes" class="s-nav-ind">📋 Indicações</a>` : '')
+    + d.grupos.map(g => `<a href="#" data-goto="sg-${g.id}">${g.icone} ${esc(g.titulo)}</a>`).join('')
+    + `</nav>`;
+  if (d.indicacoes) h += indicacoesHTML(d.indicacoes);
   for (const g of d.grupos) {
     const datas = [...new Set(g.itens.flatMap(it => it.pontos.map(p => p.data)))].sort();
     h += `<h2 class="section" id="sg-${g.id}">${g.icone} ${esc(g.titulo)}</h2>`;
@@ -408,6 +421,46 @@ function saudeConteudo(d) {
       + g.qualitativos.map(([a, b, c]) => `<tr><td>${esc(a)}</td><td class="muted">${esc(b)}</td><td>${esc(c)}</td></tr>`).join('') + `</tbody></table></div>`;
   }
   h += `<p class="muted s-rodape">Faixa verde no gráfico = valor de referência do laboratório. * = valor calculado aqui, não veio no laudo. Laboratórios diferentes usam faixas um pouco diferentes; aqui vale a do laboratório mais recente. ${esc(d._fonte || '')}<br><b>Isto organiza os números, não é diagnóstico.</b> Leve as dúvidas ao seu médico.</p>`;
+  return h;
+}
+
+function listaHTML(itens) {
+  return `<ul>${itens.map(x => `<li>${esc(x)}</li>`).join('')}</ul>`;
+}
+
+function indicacoesHTML(ind) {
+  let h = `<h2 class="section" id="sg-indicacoes">📋 Indicações — alimentação, suplementação e atividades</h2>`;
+  if (ind.aviso) h += `<div class="s-dest"><p>${esc(ind.aviso)}</p></div>`;
+  if (ind.prioridades?.length) {
+    h += `<h2 class="section">Prioridades por índice fora da faixa</h2><div class="s-grid">`;
+    for (const p of ind.prioridades) {
+      const pr = p.prioridade === 1 ? 'p1' : '';
+      h += `<div class="s-ind"><h3>${esc(p.titulo)}<span class="prio ${pr}">P${p.prioridade || 2}</span></h3>`
+        + (p.meta ? `<p class="s-meta">Meta: ${esc(p.meta)}</p>` : '')
+        + (p.alimentacao?.length ? `<h4>🥗 Alimentação</h4>${listaHTML(p.alimentacao)}` : '')
+        + (p.suplementacao?.length ? `<h4>💊 Suplementação</h4>${listaHTML(p.suplementacao)}` : '')
+        + (p.atividades?.length ? `<h4>🏃 Atividades</h4>${listaHTML(p.atividades)}` : '')
+        + `</div>`;
+    }
+    h += `</div>`;
+  }
+  if (ind.suporte?.length) {
+    h += `<h2 class="section">Suporte aos que estão no fio</h2><div class="s-wrap"><table class="s-tab ql"><thead><tr><th>Item</th><th>Status</th><th>Ação</th></tr></thead><tbody>`
+      + ind.suporte.map(s => `<tr><td>${esc(s.item)}</td><td class="muted">${esc(s.status)}</td><td>${esc(s.acao)}</td></tr>`).join('')
+      + `</tbody></table></div>`;
+  }
+  if (ind.plano) {
+    const pl = ind.plano;
+    h += `<h2 class="section">Plano semanal integrado</h2>`;
+    if (pl.alimentacao?.length) h += `<div class="s-card" style="margin-bottom:12px"><h3 style="margin:0 0 8px;font-size:15px">🥗 Alimentação (base diária)</h3>${listaHTML(pl.alimentacao)}</div>`;
+    if (pl.suplementacao?.length) {
+      h += `<div class="s-wrap"><table class="s-tab ql"><thead><tr><th>Suplemento</th><th>Para quê</th><th>Observação</th></tr></thead><tbody>`
+        + pl.suplementacao.map(([a, b, c]) => `<tr><td>${esc(a)}</td><td>${esc(b)}</td><td class="muted">${esc(c)}</td></tr>`).join('')
+        + `</tbody></table></div>`;
+    }
+    if (pl.atividades?.length) h += `<div class="s-card" style="margin:12px 0"><h3 style="margin:0 0 8px;font-size:15px">🏃 Atividades</h3>${listaHTML(pl.atividades)}</div>`;
+    if (pl.exames?.length) h += `<div class="s-card"><h3 style="margin:0 0 8px;font-size:15px">📅 Exames para repetir em breve</h3><ol style="margin:0;padding-left:18px">${pl.exames.map(x => `<li>${esc(x)}</li>`).join('')}</ol></div>`;
+  }
   return h;
 }
 
